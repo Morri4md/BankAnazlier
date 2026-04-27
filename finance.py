@@ -1,6 +1,5 @@
 import csv
 import re
-import argparse
 from collections import defaultdict
 
 
@@ -59,11 +58,9 @@ def extract_merchant(description):
         return "UNKNOWN"
 
     if len(filtered) >= 2:
-        merchant = f"{filtered[0]} {filtered[1]}"
-    else:
-        merchant = filtered[0]
+        return f"{filtered[0]} {filtered[1]}".title()
 
-    return merchant.title()
+    return filtered[0].title()
 
 
 def load_csv(file_path):
@@ -76,14 +73,10 @@ def load_csv(file_path):
             if len(row) < 3:
                 continue
 
-            date = row[0].strip()
-            description = clean_description(row[1].strip())
-            amount = row[2].strip()
-
             transactions.append({
-                "date": date,
-                "description": description,
-                "amount": amount
+                "date": row[0].strip(),
+                "description": clean_description(row[1].strip()),
+                "amount": row[2].strip()
             })
 
     return transactions
@@ -94,9 +87,6 @@ def process_transactions(transactions):
     enriched = []
 
     for t in transactions:
-        if "date" not in t or "description" not in t or "amount" not in t:
-            continue
-
         try:
             date = t["date"]
             desc = t["description"]
@@ -106,13 +96,11 @@ def process_transactions(transactions):
 
         merchant = extract_merchant(desc)
         location = extract_location(desc)
-        category = merchant
 
         enriched.append({
             "date": date,
             "description": desc,
             "merchant": merchant,
-            "category": category,
             "location": location,
             "amount": amount
         })
@@ -140,25 +128,13 @@ def print_locations(transactions):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Bank Statement Analyzer")
+    file_path = input("Enter CSV file path: ")
 
-    parser.add_argument("--file", required=True)
-    parser.add_argument("--summary", action="store_true")
-    parser.add_argument("--locations", action="store_true")
-
-    args = parser.parse_args()
-
-    transactions = load_csv(args.file)
+    transactions = load_csv(file_path)
     enriched, grouped = process_transactions(transactions)
 
-    if args.summary:
-        print_summary(grouped)
-
-    if args.locations:
-        print_locations(enriched)
-
-    if not args.summary and not args.locations:
-        print("No output selected. Use --summary or --locations.")
+    print_summary(grouped)
+    print_locations(enriched)
 
 
 if __name__ == "__main__":
