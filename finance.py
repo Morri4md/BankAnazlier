@@ -1,5 +1,6 @@
 import csv
 import re
+import argparse
 from collections import defaultdict
 
 
@@ -14,15 +15,6 @@ def clean_text(text):
     return re.sub(r"[^A-Z0-9 ]", "", text.upper()).strip()
 
 
-def extract_location(description):
-    match = re.search(r"([A-Z ]+)\s([A-Z]{2})", description.upper())
-    if match:
-        city = match.group(1).title().strip()
-        state = match.group(2)
-        return f"{city}, {state}"
-    return "Unknown"
-
-
 def normalize_word(word):
     fixes = {
         "PIZZ": "PIZZA",
@@ -30,6 +22,15 @@ def normalize_word(word):
         "CINCI": "CINCINNATI"
     }
     return fixes.get(word, word)
+
+
+def extract_location(description):
+    match = re.search(r"([A-Z ]+)\s([A-Z]{2})", description.upper())
+    if match:
+        city = match.group(1).title().strip()
+        state = match.group(2)
+        return f"{city}, {state}"
+    return "Unknown"
 
 
 def extract_merchant(description):
@@ -40,25 +41,24 @@ def extract_merchant(description):
 
     words = cleaned.split()
 
-    location_like = {
-        "MIDDLETOWN", "CINCINNATI", "CHESTER", "WEST", "MASON",
-        "LIBERTY", "TOWNS", "CARMEL"
-    }
-
     filtered = []
+
     for w in words:
         w = normalize_word(w)
-        if w in location_like:
+
+        if len(w) < 2:
             continue
-        if len(w) > 12:
+        if len(w) > 15:
             continue
+
+        # remove obvious noise fragments
+        if w.endswith("TON") or w.endswith("VILLE") or w.endswith("LAND"):
+            continue
+
         filtered.append(w)
 
     if not filtered:
         return "UNKNOWN"
-
-    if len(filtered) >= 2:
-        return f"{filtered[0]} {filtered[1]}".title()
 
     return filtered[0].title()
 
@@ -128,9 +128,13 @@ def print_locations(transactions):
 
 
 def main():
-    file_path = input("Enter CSV file path: ")
+    parser = argparse.ArgumentParser(description="Bank Statement Analyzer")
 
-    transactions = load_csv(file_path)
+    parser.add_argument("--file", required=True)
+
+    args = parser.parse_args()
+
+    transactions = load_csv(args.file)
     enriched, grouped = process_transactions(transactions)
 
     print_summary(grouped)
