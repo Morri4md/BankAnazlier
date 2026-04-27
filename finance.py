@@ -5,7 +5,8 @@ from collections import defaultdict
 
 
 def clean_description(description):
-    description = re.sub(r"(?i)aplp?ay\s*", "", description)
+    description = re.sub(r"(?i)apple\s*pay|apl\s*pay|aplp?ay", "", description)
+    description = re.sub(r"(?i)tst\*", "", description)
     description = re.sub(r"\s+", " ", description)
     return description.strip()
 
@@ -14,18 +15,55 @@ def clean_text(text):
     return re.sub(r"[^A-Z0-9 ]", "", text.upper()).strip()
 
 
+def extract_location(description):
+    match = re.search(r"([A-Z ]+)\s([A-Z]{2})", description.upper())
+    if match:
+        city = match.group(1).title().strip()
+        state = match.group(2)
+        return f"{city}, {state}"
+    return "Unknown"
+
+
+def normalize_word(word):
+    fixes = {
+        "PIZZ": "PIZZA",
+        "CHICKFILA": "CHICK FIL A",
+        "CINCI": "CINCINNATI"
+    }
+    return fixes.get(word, word)
+
+
 def extract_merchant(description):
     cleaned = clean_text(description)
-    noise = {"PMTS", "INC", "LLC", "CO", "STORE", "THE"}
-    words = [w for w in cleaned.split() if w not in noise]
-    return words[0] if words else "UNKNOWN"
 
+    cleaned = re.sub(r"\b[A-Z]{2}\b", "", cleaned)
+    cleaned = re.sub(r"\d+", "", cleaned)
 
-def extract_location(description):
-    match = re.search(r"([A-Z][a-z]+)\s([A-Z]{2})", description)
-    if match:
-        return f"{match.group(1)}, {match.group(2)}"
-    return "Unknown"
+    words = cleaned.split()
+
+    location_like = {
+        "MIDDLETOWN", "CINCINNATI", "CHESTER", "WEST", "MASON",
+        "LIBERTY", "TOWNS", "CARMEL"
+    }
+
+    filtered = []
+    for w in words:
+        w = normalize_word(w)
+        if w in location_like:
+            continue
+        if len(w) > 12:
+            continue
+        filtered.append(w)
+
+    if not filtered:
+        return "UNKNOWN"
+
+    if len(filtered) >= 2:
+        merchant = f"{filtered[0]} {filtered[1]}"
+    else:
+        merchant = filtered[0]
+
+    return merchant.title()
 
 
 def load_csv(file_path):
